@@ -257,11 +257,19 @@ list(APPEND PLATFORM_TARGET_FILES
         "${CMAKE_SOURCE_DIR}/src/platform/linux/graphics.cpp"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/misc.h"
         "${CMAKE_SOURCE_DIR}/src/platform/linux/misc.cpp"
-        "${CMAKE_SOURCE_DIR}/src/platform/linux/audio.cpp")
+        "${CMAKE_SOURCE_DIR}/src/platform/linux/audio.cpp"
+        "${CMAKE_SOURCE_DIR}/third-party/glad/src/egl.c"
+        "${CMAKE_SOURCE_DIR}/third-party/glad/src/gl.c"
+        "${CMAKE_SOURCE_DIR}/third-party/glad/include/EGL/eglplatform.h"
+        "${CMAKE_SOURCE_DIR}/third-party/glad/include/KHR/khrplatform.h"
+        "${CMAKE_SOURCE_DIR}/third-party/glad/include/glad/gl.h"
+        "${CMAKE_SOURCE_DIR}/third-party/glad/include/glad/egl.h")
 
 list(APPEND PLATFORM_LIBRARIES
         dl
         pulse
         pulse-simple)
 
-list(APPEND SUNSHINE_EXTERNAL_LIBRARIES glad)
+include_directories(
+        SYSTEM
+        "${CMAKE_SOURCE_DIR}/third-party/glad/include")
