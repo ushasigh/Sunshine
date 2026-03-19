@@ -7,6 +7,7 @@
 #include <bitset>
 #include <list>
 #include <thread>
+#include <memory>
 
 // lib includes
 #include <boost/pointer_cast.hpp>
@@ -29,6 +30,7 @@ extern "C" {
 #include "platform/common.h"
 #include "sync.h"
 #include "video.h"
+#include "video_recorder.h"
 
 #ifdef _WIN32
 extern "C" {
@@ -81,6 +83,35 @@ namespace video {
 
   void free_buffer(AVBufferRef *ref) {
     av_buffer_unref(&ref);
+  }
+
+  std::unique_ptr<VideoRecorder> frame_recorder;
+
+  void init_frame_recorder(int width, int height, int fps) {
+    if (!config::video.capture_frames) {
+      return;
+    }
+
+    frame_recorder = std::make_unique<VideoRecorder>();
+
+    std::string output_dir = config::video.capture_output_dir;
+    if (output_dir.empty()) {
+      output_dir = "recorded_session";
+    }
+
+    auto format = capture_format_from_string(config::video.capture_format);
+
+    if (!frame_recorder->initialize(output_dir, width, height, fps, format)) {
+      // initialize() 内で ffmpeg 不在等のエラーログが出力済み
+      frame_recorder.reset();
+    }
+  }
+
+  void stop_frame_recorder() {
+    if (frame_recorder) {
+      frame_recorder->finalize();
+      frame_recorder.reset();
+    }
   }
 
   namespace nv {
@@ -1955,6 +1986,8 @@ namespace video {
       return;
     }
 
+    init_frame_recorder(config.width, config.height, config.framerate);
+
     // As a workaround for NVENC hangs and to generally speed up encoder reinit,
     // we will complete the encoder teardown in a separate thread if supported.
     // This will move expensive processing off the encoder thread to allow us
@@ -1962,6 +1995,7 @@ namespace video {
     // hang occurs, this thread may probably never exit, but it will allow
     // streaming to continue without requiring a full restart of Sunshine.
     auto fail_guard = util::fail_guard([&encoder, &session] {
+      stop_frame_recorder();
       if (encoder.flags & ASYNC_TEARDOWN) {
         std::thread encoder_teardown_thread {[session = std::move(session)]() mutable {
           BOOST_LOG(info) << "Starting async encoder teardown";
@@ -1972,9 +2006,8 @@ namespace video {
       }
     });
 
-    // set max frame time based on client-requested target framerate (or 0.5fps/2000ms for event-driven capture)
-    double def_fps_target = (disp->is_event_driven() ? 1 : config.framerate);
-    double minimum_fps_target = (config::video.minimum_fps_target > 0.0) ? config::video.minimum_fps_target : def_fps_target;
+    // set max frame time based on client-requested target framerate.
+    double minimum_fps_target = (config::video.minimum_fps_target > 0.0) ? config::video.minimum_fps_target : config.framerate;
     std::chrono::duration<double, std::milli> max_frametime {1000.0 / minimum_fps_target};
     BOOST_LOG(info) << "Minimum FPS target set to ~"sv << (minimum_fps_target / 2) << "fps ("sv << max_frametime.count() * 2 << "ms)"sv;
 
@@ -2035,6 +2068,16 @@ namespace video {
           }
         } else if (!images->running()) {
           break;
+        }
+      }
+
+      // Record frame if enabled.
+      // write_frame() will auto-disable recording on failure.
+      if (frame_recorder && frame_recorder->is_recording()) {
+        if (auto avcodec_session = dynamic_cast<avcodec_encode_session_t *>(session.get())) {
+          frame_recorder->write_frame(avcodec_session->device->frame,
+                                      frame_nr,
+                                      frame_timestamp);
         }
       }
 

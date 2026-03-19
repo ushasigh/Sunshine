@@ -1165,6 +1165,10 @@ namespace config {
 
     int_f(vars, "max_bitrate", video.max_bitrate);
     double_between_f(vars, "minimum_fps_target", video.minimum_fps_target, {0.0, 1000.0});
+    bool_f(vars, "capture_frames", video.capture_frames);
+    string_f(vars, "capture_output_dir", video.capture_output_dir);
+    string_f(vars, "capture_format", video.capture_format);
+
 
     path_f(vars, "pkey", nvhttp.pkey);
     path_f(vars, "cert", nvhttp.cert);

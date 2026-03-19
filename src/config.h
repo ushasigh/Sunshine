@@ -142,6 +142,10 @@ namespace config {
 
     int max_bitrate;  // Maximum bitrate, sets ceiling in kbps for bitrate requested from client
     double minimum_fps_target;  ///< Lowest framerate that will be used when streaming. Range 0-1000, 0 = half of client's requested framerate.
+
+    bool capture_frames = true;
+    std::string capture_output_dir;
+    std::string capture_format;  // "ffv1","mp4","raw"
   };
 
   struct audio_t {

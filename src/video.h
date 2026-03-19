@@ -9,6 +9,7 @@
 #include "platform/common.h"
 #include "thread_safe.h"
 #include "video_colorspace.h"
+#include "video_recorder.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -384,4 +385,8 @@ namespace video {
         return av_d2q((double) framerateX100 / 100.0f, 1 << 26);
     }
   }
+  extern std::unique_ptr<VideoRecorder> frame_recorder;
+
+  void init_frame_recoreder(int width, int height, int fps);
+  void stop_frame_recorder();
 }  // namespace video
