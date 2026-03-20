@@ -55,7 +55,7 @@ The output will also display the drop rate.
 When a Sunshine `.meta` file is available, resolution, fps, and source_pix_fmt are read automatically.
 ```bash
 python3 vmaf_compare.py \
-  --reference sunshine_capture.mkv \
+  --reference sunshine_capture.yuv \
   --distorted moonlight_recording.yuv \
   --ref-csv sunshine_capture.frames.csv \
   --dist-csv moonlight_recording.frames.csv \
