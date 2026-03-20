@@ -59,7 +59,7 @@ python3 vmaf_compare.py \
   --distorted moonlight_recording.yuv \
   --ref-csv sunshine_capture.frames.csv \
   --dist-csv moonlight_recording.frames.csv \
-  --meta sunshine_capture.mkv.meta
+  --meta sunshine_capture.yuv.meta
 ```
 If `--meta` is omitted, the script will automatically look for `<extension>.meta` at the same path as the reference file.
 
