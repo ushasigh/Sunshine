@@ -317,10 +317,12 @@ Parameters (check the `.meta` file for exact values):
 
 ## Building
 
+In this example, Sunshine_yoshi is used; please replace it as needed.
+
 After making changes, rebuild using the standard Sunshine build procedure:
 
 ```bash
-cd ~/sunshine
+cd ~/Sunshine_yoshi
 cmake -B build-yoshi -G Ninja -S . \
   -DCMAKE_INSTALL_PREFIX=$PWD/build-yoshi \
   -DBUILD_DOCS=OFF \
