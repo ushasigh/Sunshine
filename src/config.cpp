@@ -580,6 +580,8 @@ namespace config {
     platf::appdata().string() + "/sunshine.log",  // log file
     false,  // notify_pre_releases
     true,  // system_tray
+    "yuv",  // recording_format
+    false,  // recording_stop_on_drop
     {},  // prep commands
   };
 
@@ -1165,10 +1167,6 @@ namespace config {
 
     int_f(vars, "max_bitrate", video.max_bitrate);
     double_between_f(vars, "minimum_fps_target", video.minimum_fps_target, {0.0, 1000.0});
-    bool_f(vars, "capture_frames", video.capture_frames);
-    string_f(vars, "capture_output_dir", video.capture_output_dir);
-    string_f(vars, "capture_format", video.capture_format);
-
 
     path_f(vars, "pkey", nvhttp.pkey);
     path_f(vars, "cert", nvhttp.cert);
@@ -1280,6 +1278,8 @@ namespace config {
 
     bool_f(vars, "notify_pre_releases", sunshine.notify_pre_releases);
     bool_f(vars, "system_tray", sunshine.system_tray);
+    string_restricted_f(vars, "recording_format", sunshine.recording_format, {"yuv"sv, "mp4"sv, "mkv"sv});
+    bool_f(vars, "recording_stop_on_drop", sunshine.recording_stop_on_drop);
 
     int port = sunshine.port;
     int_between_f(vars, "port"s, port, {1024 + nvhttp::PORT_HTTPS, 65535 - rtsp_stream::RTSP_SETUP_PORT});
@@ -1381,6 +1381,12 @@ namespace config {
       if (line == "--help"sv) {
         logging::print_help(*argv);
         return 1;
+      } else if (std::string_view {line}.starts_with("--recording-format="sv)) {
+        cmd_vars.insert_or_assign("recording_format", std::string {std::string_view {line}.substr(std::char_traits<char>::length("--recording-format="))});
+      } else if (line == "--recording-stop-on-drop"sv) {
+        cmd_vars.insert_or_assign("recording_stop_on_drop", "true");
+      } else if (line == "--no-recording-stop-on-drop"sv) {
+        cmd_vars.insert_or_assign("recording_stop_on_drop", "false");
       }
 #ifdef _WIN32
       else if (line == "--shortcut"sv) {

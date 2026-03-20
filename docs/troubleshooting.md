@@ -160,21 +160,18 @@ sudo usermod -aG input $USER
 ```
 
 ### KMS Streaming fails
-KMS screencasting requires elevated privileges which are not allowed for Flatpak or AppImage packages.
-This means that you must install Sunshine using the native package format of your distribution, if available.
-KMS capture will soon be phased out in favour of XDG Portal Capture (which works with all package types).
-
-### KMS Streaming; some windows flicker/disappear on KDE Plasma 6.5+
-KWin's overlay support interferes with KMS capture. As of KWin 6.5 this is not yet set by default, but
-for future versions that enables this by default, you may be able to disable again via a special
-[environment variable](https://invent.kde.org/plasma/kwin/-/wikis/Environment-Variables#kwin_use_overlays):
+If screencasting fails with KMS, you may be using the unprivileged app-dev.lizardbyte.app.Sunshine service unit.
+Switch to the privileged sunshine service:
 
 ```bash
-export KWIN_USE_OVERLAYS=0
+systemctl --user --now disable app-dev.lizardbyte.app.Sunshine
+systemctl --user --now enable sunshine
 ```
 
 > [!NOTE]
-> Disabling overlays will reduce KWin's rendering efficiency. Consider using XDG Portal Capture instead.
+> The above commands will not work with the AppImage or Flatpak packages, as KMS screencasting
+> requires elevated privileges which are not allowed by their respective packaging security policies.
+> As an alternative, XDG Portal capture is recommended.
 
 ### KMS streaming fails on Nvidia GPUs
 If KMS screen capture results in a black screen being streamed, you may need to

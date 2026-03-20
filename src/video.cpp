@@ -7,7 +7,6 @@
 #include <bitset>
 #include <list>
 #include <thread>
-#include <memory>
 
 // lib includes
 #include <boost/pointer_cast.hpp>
@@ -28,9 +27,9 @@ extern "C" {
 #include "logging.h"
 #include "nvenc/nvenc_base.h"
 #include "platform/common.h"
+#include "recorder.h"
 #include "sync.h"
 #include "video.h"
-#include "video_recorder.h"
 
 #ifdef _WIN32
 extern "C" {
@@ -83,35 +82,6 @@ namespace video {
 
   void free_buffer(AVBufferRef *ref) {
     av_buffer_unref(&ref);
-  }
-
-  std::unique_ptr<VideoRecorder> frame_recorder;
-
-  void init_frame_recorder(int width, int height, int fps) {
-    if (!config::video.capture_frames) {
-      return;
-    }
-
-    frame_recorder = std::make_unique<VideoRecorder>();
-
-    std::string output_dir = config::video.capture_output_dir;
-    if (output_dir.empty()) {
-      output_dir = "recorded_session";
-    }
-
-    auto format = capture_format_from_string(config::video.capture_format);
-
-    if (!frame_recorder->initialize(output_dir, width, height, fps, format)) {
-      // initialize() 内で ffmpeg 不在等のエラーログが出力済み
-      frame_recorder.reset();
-    }
-  }
-
-  void stop_frame_recorder() {
-    if (frame_recorder) {
-      frame_recorder->finalize();
-      frame_recorder.reset();
-    }
   }
 
   namespace nv {
@@ -378,6 +348,10 @@ namespace video {
       return device->convert(img);
     }
 
+    const AVFrame *record_frame() const override {
+      return device ? device->frame : nullptr;
+    }
+
     void request_idr_frame() override {
       if (device && device->frame) {
         auto &frame = device->frame;
@@ -468,6 +442,7 @@ namespace video {
     config_t config;
     int frame_nr;
     void *channel_data;
+    std::shared_ptr<recording::recorder_t> recorder;
   };
 
   struct sync_session_t {
@@ -1566,6 +1541,25 @@ namespace video {
     return -1;
   }
 
+  void enqueue_recording_frame(
+    const std::shared_ptr<recording::recorder_t> &recorder,
+    encode_session_t &session,
+    int64_t frame_nr
+  ) {
+    if (!recorder) {
+      return;
+    }
+
+    auto frame = session.record_frame();
+    if (!frame) {
+      return;
+    }
+
+    if (!recorder->enqueue_frame(frame, frame_nr)) {
+      BOOST_LOG(warning) << "recorder: failed to enqueue frame " << frame_nr;
+    }
+  }
+
   std::unique_ptr<avcodec_encode_session_t> make_avcodec_encode_session(
     platf::display_t *disp,
     const encoder_t &encoder,
@@ -1979,14 +1973,13 @@ namespace video {
     std::unique_ptr<platf::encode_device_t> encode_device,
     safe::signal_t &reinit_event,
     const encoder_t &encoder,
-    void *channel_data
+    void *channel_data,
+    std::shared_ptr<recording::recorder_t> recorder
   ) {
     auto session = make_encode_session(disp.get(), encoder, config, disp->width, disp->height, std::move(encode_device));
     if (!session) {
       return;
     }
-
-    init_frame_recorder(config.width, config.height, config.framerate);
 
     // As a workaround for NVENC hangs and to generally speed up encoder reinit,
     // we will complete the encoder teardown in a separate thread if supported.
@@ -1995,7 +1988,6 @@ namespace video {
     // hang occurs, this thread may probably never exit, but it will allow
     // streaming to continue without requiring a full restart of Sunshine.
     auto fail_guard = util::fail_guard([&encoder, &session] {
-      stop_frame_recorder();
       if (encoder.flags & ASYNC_TEARDOWN) {
         std::thread encoder_teardown_thread {[session = std::move(session)]() mutable {
           BOOST_LOG(info) << "Starting async encoder teardown";
@@ -2071,15 +2063,7 @@ namespace video {
         }
       }
 
-      // Record frame if enabled.
-      // write_frame() will auto-disable recording on failure.
-      if (frame_recorder && frame_recorder->is_recording()) {
-        if (auto avcodec_session = dynamic_cast<avcodec_encode_session_t *>(session.get())) {
-          frame_recorder->write_frame(avcodec_session->device->frame,
-                                      frame_nr,
-                                      frame_timestamp);
-        }
-      }
+      enqueue_recording_frame(recorder, *session, frame_nr);
 
       if (encode(frame_nr++, *session, packets, channel_data, frame_timestamp)) {
         BOOST_LOG(error) << "Could not encode video packet"sv;
@@ -2341,6 +2325,8 @@ namespace video {
             frame_timestamp = img->frame_timestamp;
           }
 
+          enqueue_recording_frame(ctx->recorder, *pos->session, ctx->frame_nr);
+
           if (encode(ctx->frame_nr++, *pos->session, ctx->packets, ctx->channel_data, frame_timestamp)) {
             BOOST_LOG(error) << "Could not encode video packet"sv;
             ctx->shutdown_event->raise(true);
@@ -2438,6 +2424,7 @@ namespace video {
 
     auto touch_port_event = mail->event<input::touch_port_t>(mail::touch_port);
     auto hdr_event = mail->event<hdr_info_t>(mail::hdr);
+    auto recorder = recording::recorder_t::create_from_env(config);
 
     // Encoding takes place on this thread
     platf::adjust_thread_priority(platf::thread_priority_e::high);
@@ -2489,7 +2476,8 @@ namespace video {
         std::move(encode_device),
         ref->reinit_event,
         *ref->encoder_p,
-        channel_data
+        channel_data,
+        recorder
       );
     }
   }
@@ -2517,6 +2505,7 @@ namespace video {
         config,
         1,
         channel_data,
+        recording::recorder_t::create_from_env(config),
       });
 
       // Wait for join signal

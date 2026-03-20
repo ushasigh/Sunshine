@@ -8,7 +8,7 @@ It is recommended to use one of the following compilers:
 
 | Compiler    | Version |
 |:------------|:--------|
-| GCC         | 14+     |
+| GCC         | 13+     |
 | Clang       | 17+     |
 | Apple Clang | 15+     |
 

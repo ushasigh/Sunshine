@@ -3,6 +3,45 @@
 #
 include_guard(GLOBAL)
 
+if(UNIX AND NOT APPLE AND NOT DEFINED FFMPEG_PREPARED_BINARIES)
+    pkg_check_modules(FFMPEG_AVFORMAT QUIET libavformat)
+    pkg_check_modules(FFMPEG_AVCODEC QUIET libavcodec)
+    pkg_check_modules(FFMPEG_AVUTIL QUIET libavutil)
+    pkg_check_modules(FFMPEG_SWSCALE QUIET libswscale)
+
+    if(FFMPEG_AVFORMAT_FOUND AND FFMPEG_AVCODEC_FOUND AND FFMPEG_AVUTIL_FOUND AND FFMPEG_SWSCALE_FOUND)
+        set(FFMPEG_CBS_HEADERS_FOUND OFF)
+        foreach(ffmpeg_include_dir IN LISTS FFMPEG_AVCODEC_INCLUDE_DIRS FFMPEG_AVFORMAT_INCLUDE_DIRS FFMPEG_AVUTIL_INCLUDE_DIRS FFMPEG_SWSCALE_INCLUDE_DIRS)
+            if(EXISTS "${ffmpeg_include_dir}/libavcodec/cbs_h264.h" AND EXISTS "${ffmpeg_include_dir}/libavcodec/cbs_h265.h")
+                set(FFMPEG_CBS_HEADERS_FOUND ON)
+                break()
+            endif()
+        endforeach()
+
+        if(NOT FFMPEG_CBS_HEADERS_FOUND)
+            message(STATUS "System FFmpeg is missing libavcodec CBS headers; falling back to prepared FFmpeg binaries")
+        else()
+            message(STATUS "Using system FFmpeg libraries via pkg-config")
+
+            set(FFMPEG_INCLUDE_DIRS
+                ${FFMPEG_AVFORMAT_INCLUDE_DIRS}
+                ${FFMPEG_AVCODEC_INCLUDE_DIRS}
+                ${FFMPEG_AVUTIL_INCLUDE_DIRS}
+                ${FFMPEG_SWSCALE_INCLUDE_DIRS}
+            )
+
+            set(FFMPEG_LIBRARIES
+                ${FFMPEG_AVFORMAT_LINK_LIBRARIES}
+                ${FFMPEG_AVCODEC_LINK_LIBRARIES}
+                ${FFMPEG_AVUTIL_LINK_LIBRARIES}
+                ${FFMPEG_SWSCALE_LINK_LIBRARIES}
+            )
+
+            return()
+        endif()
+    endif()
+endif()
+
 # ffmpeg pre-compiled binaries
 if(NOT DEFINED FFMPEG_PREPARED_BINARIES)
     # Set platform-specific libraries

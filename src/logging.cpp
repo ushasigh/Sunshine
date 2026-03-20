@@ -262,6 +262,9 @@ namespace logging {
       << std::endl
       << "    --help                    | print help"sv << std::endl
       << "    --creds username password | set user credentials for the Web manager"sv << std::endl
+      << "    --recording-format=<yuv|mp4|mkv> | choose recorder output container"sv << std::endl
+      << "    --recording-stop-on-drop  | stop Sunshine if recorder drops a frame because its queue is full"sv << std::endl
+      << "    --no-recording-stop-on-drop | keep running even if recorder drops a frame"sv << std::endl
       << "    --version                 | print the version of sunshine"sv << std::endl
       << std::endl
       << "    flags"sv << std::endl

@@ -142,10 +142,6 @@ namespace config {
 
     int max_bitrate;  // Maximum bitrate, sets ceiling in kbps for bitrate requested from client
     double minimum_fps_target;  ///< Lowest framerate that will be used when streaming. Range 0-1000, 0 = half of client's requested framerate.
-
-    bool capture_frames = true;
-    std::string capture_output_dir;
-    std::string capture_format;  // "ffv1","mp4","raw"
   };
 
   struct audio_t {
@@ -262,6 +258,8 @@ namespace config {
     std::string log_file;
     bool notify_pre_releases;
     bool system_tray;
+    std::string recording_format;
+    bool recording_stop_on_drop;
     std::vector<prep_cmd_t> prep_cmds;
 
     // List of allowed origins for CSRF protection (e.g., "https://example.com,https://app.example.com")
