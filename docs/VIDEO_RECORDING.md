@@ -457,7 +457,7 @@ If you already have another Sunshine config directory, specify a separate config
 
 **CLI options:**
 
-You can choose output formas and whether Sunshine is stopped when happening a frame drop.
+You can choose output formas and whether Sunshine is stopped when happening a frame drop or not.
 
 | CLI | Description |
 | --- | --- |
