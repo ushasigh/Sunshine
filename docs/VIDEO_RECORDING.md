@@ -52,9 +52,9 @@ local_frame_idx,frame_nr
 | `local_frame_idx` | Sequential frame index written by the recorder, starting from 0 |
 | `frame_nr` | Sunshine's internal `frame_nr` value used in `encode_run()` when the frame was handed to the recorder |
 
-## Output Modes
+## Output Format
 
-| Mode | Codec / Container | Lossless | Approximate Size at 1080p60 | Notes |
+| Format | Codec / Container | Lossless | Approximate Size at 1080p60 | Notes |
 | --- | --- | --- | --- | --- |
 | `mkv` | FFV1 in `.mkv` | Yes | 35-50 MB/s | Good for quality analysis with much smaller files than raw YUV |
 | `mp4` | H.264 in `.mp4` | No | 2-10 MB/s | Smallest files, but lossy |
@@ -456,6 +456,8 @@ XDG_CONFIG_HOME=~/config ./build/sunshine
 If you already have another Sunshine config directory, specify a separate config directory.
 
 **CLI options:**
+
+You can choose output formas and whether Sunshine is stopped when happening a frame drop.
 
 | CLI | Description |
 | --- | --- |
