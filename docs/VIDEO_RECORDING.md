@@ -22,10 +22,10 @@ This is useful for:
 
 ## Output Location
 
-Recordings are written to the output directory configured in `src/recorder.cpp`.
+Recordings are written to the output path configured in `src/recorder.cpp`.
 
 ```cpp
-output_dir = fs::path("the directory you set/sunshine_recordings_async");
+output_dir = fs::path("the path you set/sunshine_recordings_async");
 ```
 
 Each recording creates the following files depending on the selected mode:
