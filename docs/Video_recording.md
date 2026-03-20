@@ -321,7 +321,6 @@ After making changes, rebuild using the standard Sunshine build procedure:
 
 ```bash
 cd ~/sunshine
-rm -rf build-yoshi
 cmake -B build-yoshi -G Ninja -S . \
   -DCMAKE_INSTALL_PREFIX=$PWD/build-yoshi \
   -DBUILD_DOCS=OFF \
