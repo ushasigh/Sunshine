@@ -1,55 +1,55 @@
 #!/usr/bin/env python3
 """
-Sunshine vs Moonlight VMAF 比較
+Sunshine vs Moonlight VMAF Comparison
 
-フレーム番号 CSV を使って Sunshine/Moonlight 間のフレーム対応を取り、VMAF/SSIM を計算する。
+Aligns frames between Sunshine/Moonlight using frame number CSVs and computes VMAF/SSIM.
 
-=== 基本的な使い方 ===
+=== Basic Usage ===
 
-  # CSV なし: フレーム数が一致する前提でそのまま比較
+  # Without CSV: compares directly assuming frame counts match
   python3 vmaf_compare.py \
-    --reference sunshine_capture.mkv \
+    --reference sunshine_capture.yuv \
     --distorted moonlight_recording.yuv \
-    --width 1920 --height 1080 --fps 60
+    --meta sunshine_capture.yuv.meta
 
-  # CSV あり: frame_nr でフレーム対応を取って比較
+  # With CSV: aligns frames by frame_nr before comparison
   python3 vmaf_compare.py \
-    --reference sunshine_capture.mkv \
-    --distorted moonlight_recording.yuv \
-    --ref-csv sunshine_capture.frames.csv \
-    --dist-csv moonlight_recording.frames.csv \
-    --width 1920 --height 1080 --fps 60
-
-  # .meta ファイルから解像度を自動取得
-  python3 vmaf_compare.py \
-    --reference sunshine_capture.mkv \
+    --reference sunshine_capture.yuv \
     --distorted moonlight_recording.yuv \
     --ref-csv sunshine_capture.frames.csv \
     --dist-csv moonlight_recording.frames.csv \
-    --meta sunshine_capture.mkv.meta
+    --meta sunshine_capture.yuv.meta
 
-  # raw ファイル同士（pixfmt 指定）
+  # Auto-detect resolution from .meta file
+  python3 vmaf_compare.py \
+    --reference sunshine_capture.yuv \
+    --distorted moonlight_recording.yuv \
+    --ref-csv sunshine_capture.frames.csv \
+    --dist-csv moonlight_recording.frames.csv \
+    --meta sunshine_capture.yuv.meta
+
+  # Raw file comparison (with pixfmt)
   python3 vmaf_compare.py \
     --reference sunshine_capture.yuv --ref-pixfmt nv12 \
     --distorted moonlight_recording.yuv \
     --ref-csv sunshine_capture.frames.csv \
     --dist-csv moonlight_recording.frames.csv \
-    --width 1920 --height 1080 --fps 60
+    --meta sunshine_capture.yuv.meta
 
-  # 最初の300フレームだけ比較して JSON に保存
+  # Compare only the first 300 frames and save to JSON
   python3 vmaf_compare.py \
-    --reference sunshine_capture.mkv \
+    --reference sunshine_capture.yuv \
     --distorted moonlight_recording.yuv \
     --ref-csv sunshine_capture.frames.csv \
     --dist-csv moonlight_recording.frames.csv \
-    --width 1920 --height 1080 --fps 60 \
+    --meta sunshine_capture.yuv.meta \
     --frames 300 --output results.json
 
-  # カスタム VMAF モデルを指定
+  # Specify a custom VMAF model
   python3 vmaf_compare.py \
-    --reference sunshine_capture.mkv \
+    --reference sunshine_capture.yuv \
     --distorted moonlight_recording.yuv \
-    --width 1920 --height 1080 --fps 60 \
+    --meta sunshine_capture.yuv.meta \
     --model-path /path/to/vmaf_v0.6.1.json
 
 """
@@ -69,12 +69,12 @@ from typing import Dict, List, Optional
 
 
 # ============================================================
-#  データ構造
+#  Data Structures
 # ============================================================
 
 @dataclass
 class FrameAlignment:
-    """フレーム対応の結果を保持する。"""
+    """Holds the result of frame alignment."""
     matched_ref_indices: List[int] = field(default_factory=list)
     matched_dist_indices: List[int] = field(default_factory=list)
     matched_frame_nrs: List[int] = field(default_factory=list)
@@ -84,11 +84,11 @@ class FrameAlignment:
 
 
 # ============================================================
-#  CSV 読み込み
+#  CSV Loading
 # ============================================================
 
 def load_frame_csv(path: str) -> List[Dict]:
-    """フレーム CSV を読み込んで辞書のリストとして返す。"""
+    """Load a frame CSV and return a list of dictionaries."""
     rows = []
     with open(path, 'r', newline='') as f:
         reader = csv.DictReader(f)
@@ -97,7 +97,7 @@ def load_frame_csv(path: str) -> List[Dict]:
             for k, v in row.items():
                 k = k.strip()
                 v = v.strip()
-                # 数値に変換できるものは変換
+                # Convert to numeric if possible
                 try:
                     if '.' in v:
                         parsed[k] = float(v)
@@ -111,7 +111,7 @@ def load_frame_csv(path: str) -> List[Dict]:
 
 def align_frames(ref_csv_path: str, dist_csv_path: str) -> FrameAlignment:
     """
-    Sunshine 側と Moonlight 側の CSV を frame_nr で突き合わせる。
+    Align Sunshine and Moonlight CSVs by frame_nr.
 
     """
     ref_rows = load_frame_csv(ref_csv_path)
@@ -121,7 +121,7 @@ def align_frames(ref_csv_path: str, dist_csv_path: str) -> FrameAlignment:
     result.ref_total = len(ref_rows)
     result.dist_total = len(dist_rows)
 
-    # Moonlight 側: frame_nr → local_frame_idx のマップ
+    # Moonlight side: frame_nr -> local_frame_idx map
     dist_by_frame_nr: Dict[int, int] = {}
     for row in dist_rows:
         fnr = row.get('frame_nr')
@@ -129,7 +129,7 @@ def align_frames(ref_csv_path: str, dist_csv_path: str) -> FrameAlignment:
         if fnr is not None and idx is not None:
             dist_by_frame_nr[fnr] = idx
 
-    # Sunshine 側の全 frame_nr を走査して対応を取る
+    # Scan all frame_nrs on the Sunshine side and find matches
     for row in ref_rows:
         fnr = row.get('frame_nr')
         ref_idx = row.get('local_frame_idx')
@@ -148,18 +148,18 @@ def align_frames(ref_csv_path: str, dist_csv_path: str) -> FrameAlignment:
 
 
 # ============================================================
-#  YUV フレーム抽出
+#  YUV Frame Extraction
 # ============================================================
 
 def get_frame_size_yuv420p(width: int, height: int) -> int:
-    """YUV420P の 1 フレームのバイト数。"""
+    """Byte size of a single YUV420P frame."""
     return width * height * 3 // 2
 
 
 def extract_raw_frames(input_path: str, indices: List[int],
                        output_path: str, width: int, height: int,
                        pixfmt: str = 'yuv420p') -> int:
-    # pixfmt に応じた 1 フレームのサイズ計算
+    # Frame size calculation based on pixfmt
     # NV12, YUV420P: W*H*1.5,  P010: W*H*3
     fmt_lower = pixfmt.lower()
     if fmt_lower in ('nv12', 'yuv420p'):
@@ -167,7 +167,7 @@ def extract_raw_frames(input_path: str, indices: List[int],
     elif fmt_lower == 'p010' or fmt_lower == 'p010le':
         frame_size = width * height * 3  # 2 bytes per sample
     else:
-        # 汎用: YUV420P と仮定
+        # Generic: assume YUV420P
         frame_size = width * height * 3 // 2
 
     file_size = os.path.getsize(input_path)
@@ -176,10 +176,10 @@ def extract_raw_frames(input_path: str, indices: List[int],
     if not indices:
         return 0
 
-    # インデックスの範囲チェック
+    # Index range check
     max_idx = max(indices)
     if max_idx >= total_frames:
-        print(f"警告: インデックス {max_idx} がフレーム数 {total_frames} を超えています",
+        print(f"Warning: index {max_idx} exceeds total frame count {total_frames}",
               file=sys.stderr)
 
     written = 0
@@ -199,12 +199,12 @@ def extract_raw_frames(input_path: str, indices: List[int],
 def extract_container_frames(input_path: str, indices: List[int],
                              output_path: str, width: int, height: int) -> int:
     """
-    コンテナ (mkv/mp4) から指定インデックスのフレームだけを抽出して
-    raw YUV420P ファイルに書き出す。
+    Extract frames at specified indices from a container (mkv/mp4)
+    and write them to a raw YUV420P file.
 
-    ffmpeg で全フレームを YUV420P にデコードし、必要なフレームだけを残す。
+    Decodes all frames to YUV420P via ffmpeg, then keeps only the required frames.
     """
-    # まず全フレームをデコード
+    # First, decode all frames
     tmp_all = tempfile.NamedTemporaryFile(suffix='.yuv', delete=False)
     tmp_all_path = tmp_all.name
     tmp_all.close()
@@ -217,11 +217,11 @@ def extract_container_frames(input_path: str, indices: List[int],
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        print(f"ffmpeg デコードエラー: {result.stderr[-500:]}", file=sys.stderr)
+        print(f"ffmpeg decode error: {result.stderr[-500:]}", file=sys.stderr)
         os.unlink(tmp_all_path)
         return 0
 
-    # 指定フレームだけ抽出
+    # Extract specified frames only
     written = extract_raw_frames(tmp_all_path, indices, output_path,
                                  width, height, 'yuv420p')
     os.unlink(tmp_all_path)
@@ -229,7 +229,7 @@ def extract_container_frames(input_path: str, indices: List[int],
 
 
 # ============================================================
-#  メタデータ / ファイル判定
+#  Metadata / File Type Detection
 # ============================================================
 
 def parse_meta_file(meta_path: str) -> Dict[str, str]:
@@ -256,7 +256,7 @@ def get_file_type(path: str) -> str:
 
 
 # ============================================================
-#  ffmpeg 入力引数の構築
+#  Build ffmpeg Input Arguments
 # ============================================================
 
 def build_input_args(path: str, pixfmt: str,
@@ -269,7 +269,7 @@ def build_input_args(path: str, pixfmt: str,
         if not pixfmt:
             pixfmt = 'yuv420p' if path.endswith('.yuv') else ''
         if not pixfmt:
-            print(f"エラー: {path} の --ref-pixfmt または --dist-pixfmt を指定してください",
+            print(f"Error: please specify --ref-pixfmt or --dist-pixfmt for {path}",
                   file=sys.stderr)
             sys.exit(1)
         return [
@@ -280,12 +280,12 @@ def build_input_args(path: str, pixfmt: str,
             '-i', path
         ]
     else:
-        print(f"エラー: 未対応のファイル形式: {path}", file=sys.stderr)
+        print(f"Error: unsupported file format: {path}", file=sys.stderr)
         sys.exit(1)
 
 
 # ============================================================
-#  VMAF 計算
+#  VMAF Calculation
 # ============================================================
 
 def run_vmaf(reference: str, distorted: str,
@@ -293,7 +293,7 @@ def run_vmaf(reference: str, distorted: str,
              ref_pixfmt: str = '', dist_pixfmt: str = '',
              frames: int = 0, verbose: bool = False,
              model_path: str = '', model_version: str = 'v2') -> dict:
-    """ffmpeg の libvmaf フィルタで VMAF を計算する。"""
+    """Compute VMAF using ffmpeg's libvmaf filter."""
 
     tmp = tempfile.NamedTemporaryFile(suffix='.json', delete=False)
     log_path = tmp.name
@@ -302,7 +302,7 @@ def run_vmaf(reference: str, distorted: str,
     ref_args = build_input_args(reference, ref_pixfmt, width, height, fps)
     dist_args = build_input_args(distorted, dist_pixfmt, width, height, fps)
 
-    # VMAF は常に YUV420P で計算する
+    # VMAF always computes in YUV420P
     filter_chain = [
         "[0:v]format=yuv420p[dist420]",
         "[1:v]format=yuv420p[ref420]"
@@ -310,25 +310,25 @@ def run_vmaf(reference: str, distorted: str,
 
     n_threads = os.cpu_count() or 4
 
-    # モデル指定の3つのモード:
+    # Three modes for model specification:
     #
-    # 1. --model-path /path/to/model.json  (ファイルパス)
-    #    → model=path=/path/to/model.json
+    # 1. --model-path /path/to/model.json  (file path)
+    #    -> model=path=/path/to/model.json
     #
-    # 2. --model-path vmaf_b_v0.6.3  (built-in バージョン名)
+    # 2. --model-path vmaf_b_v0.6.3  (built-in version name)
     #
-    # 3. --model-path 未指定
-    #    → ffmpeg デフォルト (vmaf_v0.6.1)
+    # 3. --model-path not specified
+    #    -> ffmpeg default (vmaf_v0.6.1)
 
     if model_path:
         if model_version == 'v1':
             model_str = f"model_path={model_path}:"
         elif '/' in model_path or model_path.endswith('.json'):
-            # ファイルパスとして扱う
+            # Treat as file path
             escaped = model_path.replace('\\', '\\\\').replace(':', '\\:').replace('=', '\\=')
             model_str = f"model=path={escaped}:"
         else:
-            # built-in バージョン名として扱う (例: vmaf_b_v0.6.3)
+            # Treat as built-in version name (e.g., vmaf_b_v0.6.3)
             model_str = f"model=version={model_path}:"
     else:
         model_str = ""
@@ -344,7 +344,7 @@ def run_vmaf(reference: str, distorted: str,
 
     limit_args = ['-frames:v', str(frames)] if frames > 0 else []
 
-    # libvmaf の入力順: distorted が [0:v], reference が [1:v]
+    # libvmaf input order: distorted is [0:v], reference is [1:v]
     cmd = ['ffmpeg', '-y', '-hide_banner']
     cmd += dist_args
     cmd += ref_args
@@ -352,17 +352,17 @@ def run_vmaf(reference: str, distorted: str,
     cmd += ['-lavfi', vmaf_filter, '-f', 'null', '-']
 
     if verbose:
-        print(f"コマンド: {' '.join(cmd)}")
+        print(f"Command: {' '.join(cmd)}")
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
 
     if result.returncode != 0:
-        print(f"ffmpeg エラー:", file=sys.stderr)
+        print(f"ffmpeg error:", file=sys.stderr)
         print(result.stderr[-2000:], file=sys.stderr)
         if 'No such filter' in result.stderr or 'libvmaf' in result.stderr:
-            print("\nffmpeg に libvmaf がありません。インストール方法:", file=sys.stderr)
+            print("\nlibvmaf not found in ffmpeg. Installation options:", file=sys.stderr)
             print("  conda install -c conda-forge ffmpeg", file=sys.stderr)
-            print("  または ffmpeg をソースビルド (--enable-libvmaf)", file=sys.stderr)
+            print("  or build ffmpeg from source (--enable-libvmaf)", file=sys.stderr)
         os.unlink(log_path)
         sys.exit(1)
 
@@ -387,7 +387,7 @@ def run_vmaf(reference: str, distorted: str,
         })
 
     if not scores:
-        print("エラー: VMAF スコアが取得できませんでした", file=sys.stderr)
+        print("Error: failed to obtain VMAF scores", file=sys.stderr)
         sys.exit(1)
 
     sorted_scores = sorted(scores)
@@ -408,35 +408,35 @@ def run_vmaf(reference: str, distorted: str,
 
 
 # ============================================================
-#  メイン: フレーム対応ありの比較パイプライン
+#  Main: Aligned Frame Comparison Pipeline
 # ============================================================
 
 def run_aligned_comparison(args, width: int, height: int, fps: int,
                            alignment: FrameAlignment) -> dict:
     """
-    CSV に基づいてフレーム対応を取り、対応するフレームだけで VMAF を計算する。
+    Align frames based on CSVs and compute VMAF only on matched frames.
 
-    処理の流れ:
-      1. alignment.matched_ref_indices で reference から対応フレームを抽出
-      2. alignment.matched_dist_indices で distorted から対応フレームを抽出
-      3. 抽出した YUV 同士で VMAF を計算
+    Pipeline:
+      1. Extract matched frames from reference using alignment.matched_ref_indices
+      2. Extract matched frames from distorted using alignment.matched_dist_indices
+      3. Compute VMAF on the extracted YUV pairs
     """
-    print(f"\n--- フレーム対応情報 ---")
-    print(f"  Sunshine 録画フレーム数:   {alignment.ref_total}")
-    print(f"  Moonlight 録画フレーム数:  {alignment.dist_total}")
-    print(f"  対応済みフレーム数:        {len(alignment.matched_frame_nrs)}")
-    print(f"  ネットワークドロップ:      {len(alignment.dropped_frame_nrs)}")
+    print(f"\n--- Frame Alignment Info ---")
+    print(f"  Sunshine recorded frames:   {alignment.ref_total}")
+    print(f"  Moonlight recorded frames:  {alignment.dist_total}")
+    print(f"  Matched frames:             {len(alignment.matched_frame_nrs)}")
+    print(f"  Network drops:              {len(alignment.dropped_frame_nrs)}")
     if alignment.dropped_frame_nrs:
         dropped_display = alignment.dropped_frame_nrs[:20]
-        suffix = f" ... (他 {len(alignment.dropped_frame_nrs) - 20} 件)" \
+        suffix = f" ... (and {len(alignment.dropped_frame_nrs) - 20} more)" \
             if len(alignment.dropped_frame_nrs) > 20 else ""
-        print(f"  ドロップした frame_nr:     {dropped_display}{suffix}")
+        print(f"  Dropped frame_nrs:          {dropped_display}{suffix}")
 
     if not alignment.matched_frame_nrs:
-        print("エラー: 対応するフレームがありません", file=sys.stderr)
+        print("Error: no matching frames found", file=sys.stderr)
         sys.exit(1)
 
-    # 一時 YUV ファイルに対応フレームを抽出
+    # Extract matched frames into temporary YUV files
     tmp_ref = tempfile.NamedTemporaryFile(suffix='_ref.yuv', delete=False)
     tmp_dist = tempfile.NamedTemporaryFile(suffix='_dist.yuv', delete=False)
     tmp_ref_path = tmp_ref.name
@@ -445,14 +445,14 @@ def run_aligned_comparison(args, width: int, height: int, fps: int,
     tmp_dist.close()
 
     try:
-        # Reference (Sunshine) のフレーム抽出
-        print(f"\n  Reference からフレーム抽出中...")
+        # Extract Reference (Sunshine) frames
+        print(f"\n  Extracting reference frames...")
         ref_type = get_file_type(args.reference)
         if ref_type == 'container':
             ref_written = extract_container_frames(
                 args.reference, alignment.matched_ref_indices,
                 tmp_ref_path, width, height)
-            ref_pixfmt_for_vmaf = 'yuv420p'  # コンテナからの抽出は YUV420P
+            ref_pixfmt_for_vmaf = 'yuv420p'  # Container extraction outputs YUV420P
         else:
             ref_written = extract_raw_frames(
                 args.reference, alignment.matched_ref_indices,
@@ -460,8 +460,8 @@ def run_aligned_comparison(args, width: int, height: int, fps: int,
                 args.ref_pixfmt or 'yuv420p')
             ref_pixfmt_for_vmaf = args.ref_pixfmt or 'yuv420p'
 
-        # Distorted (Moonlight) のフレーム抽出
-        print(f"  Distorted からフレーム抽出中...")
+        # Extract Distorted (Moonlight) frames
+        print(f"  Extracting distorted frames...")
         dist_type = get_file_type(args.distorted)
         if dist_type == 'container':
             dist_written = extract_container_frames(
@@ -475,19 +475,19 @@ def run_aligned_comparison(args, width: int, height: int, fps: int,
                 args.dist_pixfmt or 'yuv420p')
             dist_pixfmt_for_vmaf = args.dist_pixfmt or 'yuv420p'
 
-        print(f"  Reference 抽出: {ref_written} フレーム")
-        print(f"  Distorted 抽出: {dist_written} フレーム")
+        print(f"  Reference extracted: {ref_written} frames")
+        print(f"  Distorted extracted: {dist_written} frames")
 
         if ref_written != dist_written:
-            print(f"警告: 抽出フレーム数が一致しません "
+            print(f"Warning: extracted frame counts do not match "
                   f"(ref={ref_written}, dist={dist_written})", file=sys.stderr)
 
-        # 抽出した YUV で VMAF 計算
+        # Compute VMAF on extracted YUV files
         frames_limit = min(ref_written, dist_written)
         if args.frames > 0:
             frames_limit = min(frames_limit, args.frames)
 
-        print(f"\n  VMAF 計算中 ({frames_limit} フレーム)...")
+        print(f"\n  Computing VMAF ({frames_limit} frames)...")
 
         results = run_vmaf(
             tmp_ref_path, tmp_dist_path,
@@ -497,12 +497,12 @@ def run_aligned_comparison(args, width: int, height: int, fps: int,
             args.model_path, args.model_version
         )
 
-        # frame_nr を per_frame に紐づける
+        # Bind frame_nr to per_frame results
         for i, pf in enumerate(results['per_frame']):
             if i < len(alignment.matched_frame_nrs):
                 pf['frame_nr'] = alignment.matched_frame_nrs[i]
 
-        # ドロップ情報を結果に追加
+        # Add drop info to results
         results['alignment'] = {
             'ref_total': alignment.ref_total,
             'dist_total': alignment.dist_total,
@@ -514,34 +514,34 @@ def run_aligned_comparison(args, width: int, height: int, fps: int,
         return results
 
     finally:
-        # 一時ファイルの削除
+        # Clean up temporary files
         for p in (tmp_ref_path, tmp_dist_path):
             if os.path.exists(p):
                 os.unlink(p)
 
 
 # ============================================================
-#  結果表示・保存
+#  Results Display / Save
 # ============================================================
 
 def print_results(results: dict, alignment: Optional[FrameAlignment] = None):
     vmaf = results['vmaf_mean']
     print()
     print("=" * 55)
-    print("  VMAF 結果")
+    print("  VMAF Results")
     print("=" * 55)
-    print(f"  平均:       {vmaf:.4f}")
-    print(f"  最小:       {results['vmaf_min']:.2f}")
-    print(f"  最大:       {results['vmaf_max']:.2f}")
+    print(f"  Mean:       {vmaf:.4f}")
+    print(f"  Min:        {results['vmaf_min']:.2f}")
+    print(f"  Max:        {results['vmaf_max']:.2f}")
     print(f"  5th pctl:   {results['vmaf_p5']:.2f}")
     print(f"  25th pctl:  {results['vmaf_p25']:.2f}")
     if 'ssim_mean' in results:
         print(f"  SSIM:       {results['ssim_mean']:.6f}")
-    print(f"  フレーム数: {results['frames']}")
+    print(f"  Frames:     {results['frames']}")
 
     if alignment:
         drop_rate = len(alignment.dropped_frame_nrs) / max(1, alignment.ref_total) * 100
-        print(f"  ドロップ率: {drop_rate:.2f}% "
+        print(f"  Drop rate:  {drop_rate:.2f}% "
               f"({len(alignment.dropped_frame_nrs)}/{alignment.ref_total})")
 
     print("=" * 55)
@@ -570,7 +570,7 @@ def save_log(args, results: dict, width: int, height: int, fps: int):
     if 'ssim_mean' in results:
         lines.append(f"ssim_mean={results['ssim_mean']:.6f}")
 
-    # フレーム対応情報
+    # Frame alignment info
     if 'alignment' in results:
         a = results['alignment']
         lines.append(f"alignment_matched={a['matched']}")
@@ -620,7 +620,7 @@ def save_json(args, results: dict):
 
     with open(args.output, 'w') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
-    print(f"保存: {args.output}")
+    print(f"Saved: {args.output}")
 
 
 # ============================================================
@@ -629,57 +629,57 @@ def save_json(args, results: dict):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Sunshine vs Moonlight VMAF 比較（フレーム対応版）')
+        description='Sunshine vs Moonlight VMAF Comparison (with frame alignment)')
 
-    # 入力ファイル
+    # Input files
     parser.add_argument('--reference', '-r', required=True,
-                        help='Sunshine 側の録画 (.mkv/.mp4/.yuv)')
+                        help='Sunshine-side recording (.mkv/.mp4/.yuv)')
     parser.add_argument('--distorted', '-d', required=True,
-                        help='Moonlight 側の録画 (.yuv)')
+                        help='Moonlight-side recording (.yuv)')
 
-    # フレーム対応 CSV（オプション）
+    # Frame alignment CSV (optional)
     parser.add_argument('--ref-csv', default='',
-                        help='Sunshine 側のフレーム CSV (frame_nr 入り)')
+                        help='Sunshine-side frame CSV (with frame_nr)')
     parser.add_argument('--dist-csv', default='',
-                        help='Moonlight 側のフレーム CSV (frame_nr 入り)')
+                        help='Moonlight-side frame CSV (with frame_nr)')
 
-    # 映像パラメータ
+    # Video parameters
     parser.add_argument('--width', '-W', type=int, default=0)
     parser.add_argument('--height', '-H', type=int, default=0)
     parser.add_argument('--fps', type=int, default=0)
-    parser.add_argument('--ref-pixfmt', default='', help='Reference の pixfmt (raw 時)')
-    parser.add_argument('--dist-pixfmt', default='', help='Distorted の pixfmt (raw 時)')
-    parser.add_argument('--meta', '-m', default='', help='.meta ファイル')
+    parser.add_argument('--ref-pixfmt', default='', help='Reference pixfmt (for raw files)')
+    parser.add_argument('--dist-pixfmt', default='', help='Distorted pixfmt (for raw files)')
+    parser.add_argument('--meta', '-m', default='', help='.meta file')
 
-    # 出力
+    # Output
     parser.add_argument('--frames', '-n', type=int, default=0,
-                        help='比較フレーム数 (0=全部)')
-    parser.add_argument('--output', '-o', default='', help='JSON 出力先')
+                        help='Number of frames to compare (0=all)')
+    parser.add_argument('--output', '-o', default='', help='JSON output path')
     parser.add_argument('--log-file', '-l', default='',
-                        help='結果を追記保存するログファイルパス')
+                        help='Log file path for appending results')
     parser.add_argument('--log-per-frame', action='store_true',
-                        help='フレームごとの VMAF をログにも書き出す')
+                        help='Include per-frame VMAF in the log')
     parser.add_argument('--verbose', '-v', action='store_true')
     parser.add_argument('--model-path', default='',
-                        help='VMAF モデル: ファイルパス (/path/to/vmaf_v0.6.1.json) '
-                             'または built-in バージョン名 (vmaf_b_v0.6.3)')
+                        help='VMAF model: file path (/path/to/vmaf_v0.6.1.json) '
+                             'or built-in version name (vmaf_b_v0.6.3)')
     parser.add_argument('--model-version', default='v2', choices=['v1', 'v2'],
-                        help='libvmaf のオプション書式 (v2=ffmpeg5+/デフォルト, v1=ffmpeg4)')
+                        help='libvmaf option format (v2=ffmpeg5+/default, v1=ffmpeg4)')
 
     args = parser.parse_args()
 
-    # ファイル確認
+    # File check
     for f in [args.reference, args.distorted]:
         if not os.path.isfile(f):
-            print(f"エラー: ファイルが見つかりません: {f}", file=sys.stderr)
+            print(f"Error: file not found: {f}", file=sys.stderr)
             sys.exit(1)
 
     for f in [args.ref_csv, args.dist_csv]:
         if f and not os.path.isfile(f):
-            print(f"エラー: CSV ファイルが見つかりません: {f}", file=sys.stderr)
+            print(f"Error: CSV file not found: {f}", file=sys.stderr)
             sys.exit(1)
 
-    # .meta からパラメータ取得
+    # Get parameters from .meta file
     width, height, fps = args.width, args.height, args.fps
     meta_path = args.meta
 
@@ -697,40 +697,40 @@ def main():
         if not args.ref_pixfmt:
             args.ref_pixfmt = meta.get('source_pix_fmt', '')
 
-    # raw ファイルの場合は解像度必須
+    # Resolution is required for raw files
     needs_dims = (get_file_type(args.reference) == 'rawvideo' or
                   get_file_type(args.distorted) == 'rawvideo')
     if needs_dims and (not width or not height or not fps):
-        print("エラー: raw ファイルには --width, --height, --fps が必要です",
+        print("Error: --width, --height, and --fps are required for raw files",
               file=sys.stderr)
         sys.exit(1)
 
-    # 実行
-    print(f"VMAF 計算中...")
+    # Run
+    print(f"Computing VMAF...")
     print(f"  Reference: {args.reference}")
     print(f"  Distorted: {args.distorted}")
 
     alignment = None
 
     if args.ref_csv and args.dist_csv:
-        # ===== CSV ありモード: フレーム対応を取って比較 =====
+        # ===== CSV mode: align frames before comparison =====
         print(f"  Ref CSV:   {args.ref_csv}")
         print(f"  Dist CSV:  {args.dist_csv}")
 
         alignment = align_frames(args.ref_csv, args.dist_csv)
         results = run_aligned_comparison(args, width, height, fps, alignment)
     else:
-        # ===== CSV なしモード: 従来互換 =====
+        # ===== No-CSV mode: legacy direct comparison =====
         results = run_vmaf(
             args.reference, args.distorted, width, height, fps,
             args.ref_pixfmt, args.dist_pixfmt, args.frames, args.verbose,
             args.model_path, args.model_version
         )
 
-    # 結果表示
+    # Display results
     print_results(results, alignment)
 
-    # 保存
+    # Save
     save_log(args, results, width, height, fps)
     save_json(args, results)
 
