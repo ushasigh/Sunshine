@@ -321,12 +321,12 @@ After making changes, rebuild using the standard Sunshine build procedure:
 
 ```bash
 cd ~/sunshine
-rm -rf build
-cmake -B build -G Ninja -S . \
-  -DCMAKE_INSTALL_PREFIX=$PWD/build \
+rm -rf build-yoshi
+cmake -B build-yoshi -G Ninja -S . \
+  -DCMAKE_INSTALL_PREFIX=$PWD/build-yoshi \
   -DBUILD_DOCS=OFF \
   -DBUILD_TESTS=OFF
-ninja -C build
+ninja -C build-yoshi
 ```
 
 ## How to use
@@ -336,7 +336,9 @@ Create a separate configuration directory (e.g., config-yoshi) to avoid conflict
 The directory name does not have to be config-yoshi; it is used here as an example.
 
 ```bash
+cd ~
 mkdir config-yoshi
+cd Sunshine_yoshi
 XDG_CONFIG_HOME=~/config-yoshi ./build-yoshi/sunshine
 ```
 
