@@ -445,7 +445,7 @@ cmake -B build -G Ninja -S . \
 ninja -C build
 ```
 
-If you already have another Sunshine installation, use a separate build directory as needed.
+If you already have another Sunshine installation, specify a separate build directory as needed.
 
 ## Running
 
