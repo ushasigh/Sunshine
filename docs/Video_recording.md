@@ -329,6 +329,19 @@ cmake -B build -G Ninja -S . \
 ninja -C build
 ```
 
+## How to use
+
+After building, run the following command.
+Create a separate configuration directory (e.g., config-yoshi) to avoid conflicts with other Sunshine instances.
+The directory name does not have to be config-yoshi; it is used here as an example.
+
+```bash
+mkdir config-yoshi
+XDG_CONFIG_HOME=~/config-yoshi ./build-yoshi/sunshine
+```
+
+
+
 No additional external dependencies are required. `ffv1`/`mp4` modes require `ffmpeg` to be installed on the host (`raw` mode does not).
 
 ## Disabling Recording
