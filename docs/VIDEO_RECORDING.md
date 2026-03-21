@@ -441,7 +441,8 @@ rm -rf build
 cmake -B build -G Ninja -S . \
   -DCMAKE_INSTALL_PREFIX=$PWD/build \
   -DBUILD_DOCS=OFF \
-  -DBUILD_TESTS=OFF
+  -DBUILD_TESTS=OFF \
+  -DSUNSHINE_ENABLE_PORTAL=OFF
 ninja -C build
 ```
 
