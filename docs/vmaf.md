@@ -131,3 +131,8 @@ python3 vmaf_compare.py \
   --log-per-frame \
   --model-path /path/to/vmaf_v0.6.1.json 
 ```
+## visualize as a graph
+
+```bash
+python plot_vmaf_log.py results.log -o result_graph.png
+```
