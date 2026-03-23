@@ -474,7 +474,7 @@ At certain resolutions of the Sunshine host PC and recording resolutions, colors
 - resolution of the Sunshine host PC:**1680×1050 (16:10)**
   - Colors may be incorrect at recording resolutions of 1080p, 2160p (4K), 2520p, and 4320p.
 - resolution of the Sunshine host PC:**1920×1080 (16:9)**
-  - it works correctly.
+  - It works correctly.
 
 ## Summary of Changed Files
 
