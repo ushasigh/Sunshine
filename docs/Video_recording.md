@@ -277,7 +277,7 @@ Changes: Registered new source files in the build system
 Settings can be overridden in `sunshine.conf` (default: `~/.config/sunshine/sunshine.conf`).
 Defaults when unset: `capture_frames=enabled`, `capture_format=ffv1`, `capture_output_dir=recorded_session`.
 You can also create your own config directory and point to it.
-Example: `XDG_CONFIG_HOME=~/config-yoshi ./build-yoshi/sunshine`
+Example: `XDG_CONFIG_HOME=~/config-sunshine ./build/sunshine`
 
 ```ini
 capture_frames = enabled            # enabled by default
@@ -317,30 +317,30 @@ Parameters (check the `.meta` file for exact values):
 
 ## Building
 
-In this example, Sunshine_yoshi is used; please replace it as needed.
+In this example, Sunshine is used; please replace it as needed.
 
 After making changes, rebuild using the standard Sunshine build procedure:
 
 ```bash
-cd ~/Sunshine_yoshi
-cmake -B build-yoshi -G Ninja -S . \
-  -DCMAKE_INSTALL_PREFIX=$PWD/build-yoshi \
+cd ~/Sunshine
+cmake -B build -G Ninja -S . \
+  -DCMAKE_INSTALL_PREFIX=$PWD/build \
   -DBUILD_DOCS=OFF \
   -DBUILD_TESTS=OFF
-ninja -C build-yoshi
+ninja -C build
 ```
 
 ## How to use
 
 After building, run the following command.
-Create a separate configuration directory (e.g., config-yoshi) to avoid conflicts with other Sunshine instances.
-The directory name does not have to be config-yoshi; it is used here as an example.
+Create a separate configuration directory (e.g., config-sunshine) to avoid conflicts with other Sunshine instances.
+The directory name does not have to be config-sunshine; it is used here as an example.
 
 ```bash
 cd ~
-mkdir config-yoshi
-cd Sunshine_yoshi
-XDG_CONFIG_HOME=~/config-yoshi ./build-yoshi/sunshine
+mkdir config-sunshine
+cd Sunshine_sunshine
+XDG_CONFIG_HOME=~/config-sunshine ./build/sunshine
 ```
 
 
