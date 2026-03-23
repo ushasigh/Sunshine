@@ -405,7 +405,7 @@ After recording, convert the raw YUV file to MP4 using FFmpeg:
 
 ```bash
 ffmpeg -f rawvideo -pix_fmt yuv420p -s 1920x1080 -r 60 \
-    -i "recorded_session/moonlight_recording_YYYYMMDD_hhmmss.yuv" \
+    -i "sunshine_recordings_async/sunshine_recording_YYYYMMDD_hhmmss.yuv" \
     -c:v libx264 -pix_fmt yuv420p -crf 18 \
     "output.mp4"
 ```
