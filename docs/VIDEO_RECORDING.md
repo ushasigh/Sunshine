@@ -466,6 +466,14 @@ You can choose output formas and whether Sunshine is stopped when happening a fr
 | `--recording-stop-on-drop` | Stop Sunshine if the recorder drops a frame because the queue is full. Default: off |
 | `--no-recording-stop-on-drop` | Keep Sunshine running even if the recorder drops a frame. This is the default behavior |
 
+## Note
+
+At certain resolutions of Sunshine host PC, colors in both the Sunshine recording data and the Moonlight display/recorded output can be different from the original.
+
+**For example:**
+when the resolution of the Sunshine host PC is 1680×1050 (16:10),
+the
+
 ## Summary of Changed Files
 
 | File | Action | Summary |
