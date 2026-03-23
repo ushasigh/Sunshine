@@ -88,7 +88,7 @@ python3 vmaf_compare.py ... --frames 300
 
 ## Output Options
 - `--output results.json` : Save VMAF/SSIM and per-frame results as JSON
-- `--log-file log.txt` : Append key metrics to a log file (`--log-per-frame` to include per-frame data)
+- `--log-file result.log` : Append key metrics to a log file (`--log-per-frame` to include per-frame data)
 - `--verbose` : Display the ffmpeg commands being executed
 
 ## Specifying the VMAF Model
@@ -117,3 +117,17 @@ python3 vmaf_compare.py ... --frames 300
 - VMAF calculation is always performed in YUV420P (converted via `format=yuv420p` before libvmaf).
 - Temporary files created during frame extraction are automatically deleted.
 - Computation uses CPU multi-threading (`n_threads=os.cpu_count()`).
+
+## all setting
+
+```bash
+python3 vmaf_compare.py \
+  --reference sunshine_capture.yuv \
+  --distorted moonlight_recording.yuv \
+  --ref-csv sunshine_capture.frames.csv \
+  --dist-csv moonlight_recording.frames.csv \
+  --meta sunshine_capture.yuv.meta \
+  --log-file result.log \
+  --log-per-frame \
+  --model-path /path/to/vmaf_v0.6.1.json 
+```
