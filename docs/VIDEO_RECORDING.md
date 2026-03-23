@@ -469,6 +469,7 @@ You can choose output formas and whether Sunshine is stopped when happening a fr
 ## Note
 
 At certain resolutions of the Sunshine host PC and recording resolutions, colors in both the Sunshine recording data and the Moonlight display/recorded output may be different from the original.
+
 **Example:**
 -resolution of the Sunshine host PC:1680×1050 (16:10)
  -Colors may be incorrect at 1080p, 2160p (4K), 2520p, and 4320p.
