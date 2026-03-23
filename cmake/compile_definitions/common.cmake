@@ -150,6 +150,10 @@ include_directories(
         ${Boost_INCLUDE_DIRS}  # has to be the last, or we get runtime error on macOS ffmpeg encoder
 )
 
+# FFmpeg prepared binaries can also ship ffnvcodec headers. Re-apply Sunshine's
+# pinned nv-codec-headers include path last so it stays ahead of FFMPEG_INCLUDE_DIRS.
+include_directories(BEFORE SYSTEM "${CMAKE_SOURCE_DIR}/third-party/nv-codec-headers/include")
+
 list(APPEND SUNSHINE_EXTERNAL_LIBRARIES
         ${MINIUPNP_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}

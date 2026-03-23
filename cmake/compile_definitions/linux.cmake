@@ -1,4 +1,5 @@
 # linux specific compile definitions
+include_guard(GLOBAL)
 
 if(FREEBSD)
     add_compile_definitions(SUNSHINE_PLATFORM="freebsd")
@@ -231,7 +232,9 @@ if(FREEBSD)
     set(USE_UHID OFF)
 endif()
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/inputtino")
+if(NOT TARGET libinputtino AND NOT TARGET inputtino::libinputtino)
+    add_subdirectory("${CMAKE_SOURCE_DIR}/third-party/inputtino")
+endif()
 list(APPEND SUNSHINE_EXTERNAL_LIBRARIES inputtino::libinputtino)
 file(GLOB_RECURSE INPUTTINO_SOURCES
         ${CMAKE_SOURCE_DIR}/src/platform/linux/input/inputtino*.h
