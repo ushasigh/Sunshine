@@ -363,6 +363,14 @@ capture_frames = disabled
 - **Output pixel format:** Even when the input is NV12/P010, all modes (`raw`/`ffv1`/`mp4`) convert and save as YUV420P (8-bit). P010 is downconverted to 8-bit.
 - **`ffv1`/`mp4` modes require `ffmpeg` on the host.** If not found, recording is disabled at `initialize()` time.
 
+
+## Notes
+
+- Sunshine  may not work correctly at certain resolutions.
+- For example, at **1620×1050 (16:10)**:
+  - Colors may be incorrect at **1080p, 2160p (4K), 2520p, and 4320p**.
+- At **1920×1080 (16:9)**, it works correctly.
+
 ## Changed Files Summary
 
 | File | Operation | Description |
