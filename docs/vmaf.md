@@ -3,7 +3,6 @@
 A usage guide for `vmaf_compare.py`, a script that aligns Sunshine-side recordings (Reference) with Moonlight-side recordings (Distorted) and computes VMAF and SSIM.
 
 ## Prerequisites (Building from GitHub Sources)
-- Python 3.8+
 - `vmaf` (clone and build from https://github.com/Netflix/vmaf)
   - Example:
     ```bash
