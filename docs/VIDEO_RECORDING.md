@@ -436,7 +436,7 @@ Typical compressed output sizes:
 After making changes, rebuild:
 
 ```bash
-cd ~/Sunshine
+cd ~/Sunshine_kent
 rm -rf build
 cmake -B build -G Ninja -S . \
   -DCMAKE_INSTALL_PREFIX=$PWD/build \
@@ -451,7 +451,7 @@ ninja -C build
 After building, run:
 
 ```bash
-XDG_CONFIG_HOME=~/config ./build/sunshine
+XDG_CONFIG_HOME=~/kent-config ./build/sunshine
 ```
 
 If you already have another Sunshine config directory, specify a separate config directory.
@@ -466,7 +466,7 @@ You can choose output formas and whether Sunshine is stopped when happening a fr
 | `--recording-stop-on-drop` | Stop Sunshine if the recorder drops a frame because the queue is full. Default: off |
 | `--no-recording-stop-on-drop` | Keep Sunshine running even if the recorder drops a frame. This is the default behavior |
 
-## Note
+## Notes
 
 At certain resolutions of the Sunshine host PC and recording resolutions, colors in both the Sunshine recording data and the Moonlight display/recorded output may be different from the original.
 
